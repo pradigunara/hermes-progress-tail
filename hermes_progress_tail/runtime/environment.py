@@ -320,8 +320,9 @@ def _update_environment_from_terminal(
 
 def _terminal_live_cwd(task_id: str = "") -> str:
     try:
-        from tools.terminal_tool import get_active_env
+        from ..hooks.core_modules import resolve_terminal_module
 
+        get_active_env = resolve_terminal_module().get_active_env
         env = get_active_env(task_id or "default")
         cwd = getattr(env, "cwd", None)
         return str(cwd) if cwd else ""

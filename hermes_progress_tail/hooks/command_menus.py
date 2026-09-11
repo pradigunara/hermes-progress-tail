@@ -4,6 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from .core_modules import commands_module_label, resolve_commands_module
 from .install_report import PatchStatus
 from .status_helpers import structured_patch_status
 
@@ -116,7 +117,7 @@ def _mutate_command_menu_monkeypatch(commands_module: Any | None = None) -> bool
     commands_mod = commands_module
     if commands_mod is None:
         try:
-            import hermes_cli.commands as commands_mod
+            commands_mod = resolve_commands_module()
         except Exception as exc:
             logger.debug("hermes-progress-tail command menu patch unavailable: %s", exc)
             return False
@@ -181,7 +182,7 @@ def uninstall_command_menu_monkeypatch(commands_module: Any | None = None) -> bo
     commands_mod = commands_module
     if commands_mod is None:
         try:
-            import hermes_cli.commands as commands_mod
+            commands_mod = resolve_commands_module()
         except Exception:
             return False
     changed = False
@@ -204,24 +205,18 @@ def uninstall_command_menu_monkeypatch(commands_module: Any | None = None) -> bo
 
 def command_menu_monkeypatch_active() -> bool:
     try:
-        import hermes_cli.commands as commands_mod
-
+        commands_mod = resolve_commands_module()
         return bool(getattr(commands_mod, _COMMAND_MENU_PATCH_MARKER, False))
     except Exception:
         return False
 
 
 def _command_menu_patch_status(commands_module: Any | None = None) -> PatchStatus:
-    def resolver():
-        import hermes_cli.commands
-
-        return hermes_cli.commands
-
     return structured_patch_status(
         name="command_menu",
-        target_label="hermes_cli.commands.telegram_menu_commands",
+        target_label=f"{commands_module_label()}.telegram_menu_commands",
         target=commands_module,
-        resolver=resolver,
+        resolver=resolve_commands_module,
         members=("telegram_menu_commands",),
         mutate=lambda target: _mutate_command_menu_monkeypatch(target),
     )

@@ -41,6 +41,7 @@ from .compression import (
     uninstall_compression_status_monkeypatch,
 )
 from .contracts import HookCallbacks, configure_hook_callbacks, current_hook_callbacks
+from .core_modules import resolve_commands_module
 from .delegate import (
     _delegate_patch_status,
     _extract_delegate_builder_args,
@@ -219,9 +220,7 @@ def _process():
 
 
 def _commands():
-    import hermes_cli.commands
-
-    return hermes_cli.commands
+    return resolve_commands_module()
 
 
 _CAPABILITY_SPECS = (
@@ -270,7 +269,7 @@ _CAPABILITY_SPECS = (
         "command_menu",
         "commands_module",
         ("telegram_menu_commands",),
-        "hermes_cli.commands.telegram_menu_commands",
+        "hermes_cli.commands_platforms.telegram_menu_commands",
         _commands,
         _command_menu_patch_status,
         False,

@@ -17,7 +17,7 @@ EXPECTED = (
     ("delegate_progress", "tools.delegate_tool._build_child_progress_callback"),
     ("telegram_format", "TelegramAdapter.edit_message"),
     ("telegram_topic_recovery", "gateway.run.GatewayRunner._recover_telegram_topic_thread_id"),
-    ("command_menu", "hermes_cli.commands.telegram_menu_commands"),
+    ("command_menu", "hermes_cli.commands_platforms.telegram_menu_commands"),
     ("gateway_interrupt", "gateway.run.GatewayRunner._interrupt_and_clear_session"),
     ("gateway_display", "gateway.display_config.resolve_display_setting"),
     ("process_notifications", "tools.process_registry.format_process_notification"),
