@@ -57,6 +57,7 @@ def rich_renderer_for_settings(settings: object) -> Callable[[str], str]:
             compact_success=getattr(settings, "compact_success", True),
             max_detail_items=getattr(settings, "max_detail_items", 8),
             collapse_narrative_chars=getattr(settings, "collapse_narrative_chars", 1200),
+            collapse_peek_units=getattr(settings, "collapse_peek_units", 1),
         )
 
     return render

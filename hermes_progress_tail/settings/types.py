@@ -128,6 +128,7 @@ class TelegramSettings:
     compact_success: bool = True
     max_detail_items: int = 8
     collapse_narrative_chars: int = 1200
+    collapse_peek_units: int = 1
     rich_budget_bytes: int = 7500
     min_narrative_chars: int = 300
 

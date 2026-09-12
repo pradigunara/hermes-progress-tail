@@ -180,6 +180,7 @@ progress_tail:
     compact_success: true
     max_detail_items: 8
     collapse_narrative_chars: 1200 # collapse Progress/Reasoning past this size into a tappable <details> block; 0 disables
+    collapse_peek_units: 1 # keep this many newest units (Progress lines / Reasoning thoughts) visible above the collapse; 0 collapses the whole section
     rich_budget_bytes: 7500 # hard UTF-8 byte budget for a rich card; keeps Telegram from collapsing it behind "Show more"
     min_narrative_chars: 300 # never shrink Progress/Reasoning below this when fitting the byte budget
 

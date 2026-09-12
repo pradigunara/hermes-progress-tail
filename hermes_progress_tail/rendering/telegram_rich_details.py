@@ -40,6 +40,20 @@ class RichDetails:
         return f"<details{attr}>\n<summary>{summary}</summary>\n\n{body}\n\n</details>"
 
 
+@dataclass(frozen=True)
+class RichRendered:
+    """Already-rendered markdown passed through untouched.
+
+    The peek re-emits units that were produced by the section's own blocks, so
+    re-normalizing them would be a second, lossy pass over the same text.
+    """
+
+    markdown: str
+
+    def to_markdown(self) -> str:
+        return str(self.markdown or "").strip()
+
+
 _MATH_IN_DETAILS_RE = re.compile(
     r"(\$\$.*?\$\$|"
     r"\\\[.*?\\\]|"
@@ -56,11 +70,19 @@ def collapse_narrative(
     *,
     threshold: int,
     sanitize: Callable[[str], str] | None = None,
-) -> RichDetails | None:
-    """Wrap a long narrative section in a collapsible block.
+    peek_units: int = 0,
+) -> list[_Block] | None:
+    """Collapse a long narrative section, optionally peeking its newest units.
 
     Returns ``None`` when collapsing is disabled or the section is short enough
     to stay inline, so short sections keep their existing flat rendering.
+
+    With ``peek_units <= 0`` the whole section becomes one ``<details>`` block,
+    which is what this function did before the peek existed. With a positive
+    ``peek_units`` the result is the section heading, the newest units inline,
+    and a ``<details>`` holding the older remainder in original order — a fully
+    collapsed section hid its own heading and opened at the *oldest* line, so a
+    long card showed nothing current without a tap.
 
     Math inside a ``<details>`` block crashes Telegram Desktop 6.9.1
     (telegramdesktop/tdesktop#30808). Hermes core screens its own send path,
@@ -70,11 +92,66 @@ def collapse_narrative(
     """
     if threshold <= 0:
         return None
-    rendered = "\n\n".join(
-        markdown for block in blocks if (markdown := block.to_markdown().strip())
-    ).strip()
+    rendered_blocks = [markdown for block in blocks if (markdown := block.to_markdown().strip())]
+    rendered = "\n\n".join(rendered_blocks).strip()
     if not rendered or len(rendered) <= threshold:
         return None
     if _MATH_IN_DETAILS_RE.search(rendered):
         return None
-    return RichDetails(summary=f"{title} · tap to expand", body=rendered, sanitize=sanitize)
+    peek = _safe_peek(peek_units)
+    if peek <= 0:
+        return [RichDetails(summary=f"{title} · tap to expand", body=rendered, sanitize=sanitize)]
+    units = _peek_units(rendered_blocks)
+    if peek >= len(units):
+        # The peek would swallow the whole section: render it flat rather than
+        # emit a heading followed by an empty <details>.
+        return None
+    heading = (sanitize(title) if sanitize else title) or title
+    older = "\n\n".join(units[: len(units) - peek]).strip()
+    return [
+        RichRendered(f"## {heading}"),
+        RichRendered("\n\n".join(units[len(units) - peek :])),
+        RichDetails(
+            summary=f"Earlier {title} · tap to expand",
+            body=older,
+            sanitize=sanitize,
+        ),
+    ]
+
+
+def _peek_units(rendered_blocks: Sequence[str]) -> list[str]:
+    """Split a rendered section into the units a peek can take from its tail.
+
+    A single block holds an entire section (Progress is one bullet list), so its
+    own paragraph breaks are the only boundary available — that makes the
+    Progress unit a line. Multiple blocks are already per-thought, but Reasoning
+    alternates heading and body, so a trailing body is paired with the heading
+    above it; taking the body alone would peek a thought with no title.
+    """
+    if len(rendered_blocks) <= 1:
+        return [
+            part.strip()
+            for chunk in rendered_blocks
+            for part in chunk.split("\n\n")
+            if part.strip()
+        ]
+    units: list[str] = []
+    pending_heading: str | None = None
+    for markdown in rendered_blocks:
+        if markdown.lstrip().startswith("#"):
+            if pending_heading is not None:
+                units.append(pending_heading)
+            pending_heading = markdown
+            continue
+        units.append(f"{pending_heading}\n\n{markdown}" if pending_heading else markdown)
+        pending_heading = None
+    if pending_heading is not None:
+        units.append(pending_heading)
+    return units
+
+
+def _safe_peek(value: object) -> int:
+    try:
+        return max(0, int(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0

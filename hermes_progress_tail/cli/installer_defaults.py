@@ -85,6 +85,7 @@ DEFAULT_CONFIG = {
         "compact_success": True,
         "max_detail_items": 8,
         "collapse_narrative_chars": 1200,
+        "collapse_peek_units": 1,
         "rich_budget_bytes": 7500,
         "min_narrative_chars": 300,
     },

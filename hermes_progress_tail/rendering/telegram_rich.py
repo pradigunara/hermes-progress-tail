@@ -132,6 +132,7 @@ def format_progress_tail_telegram_rich_markdown(
     compact_success: bool = True,
     max_detail_items: int = 8,
     collapse_narrative_chars: int = 0,
+    collapse_peek_units: int = 0,
 ) -> str:
     text = str(content or "")
     doc = rich_doc_from_progress_tail(
@@ -142,6 +143,7 @@ def format_progress_tail_telegram_rich_markdown(
         compact_success=compact_success,
         max_detail_items=max_detail_items,
         collapse_narrative_chars=collapse_narrative_chars,
+        collapse_peek_units=collapse_peek_units,
     )
     return doc.to_markdown()
 
@@ -155,6 +157,7 @@ def rich_doc_from_progress_tail(
     compact_success: bool = True,
     max_detail_items: int = 8,
     collapse_narrative_chars: int = 0,
+    collapse_peek_units: int = 0,
 ) -> RichDoc:
     lines = [line.rstrip() for line in str(content or "").splitlines()]
     blocks: list[RichBlock] = []
@@ -201,6 +204,7 @@ def rich_doc_from_progress_tail(
             compact_success=compact_success,
             max_detail_items=max_detail_items,
             collapse_narrative_chars=collapse_narrative_chars,
+            collapse_peek_units=collapse_peek_units,
         )
         blocks.extend(section_blocks)
     if not blocks:
@@ -258,24 +262,28 @@ def section_to_blocks(
     compact_success: bool,
     max_detail_items: int,
     collapse_narrative_chars: int = 0,
+    collapse_peek_units: int = 0,
 ) -> list[RichBlock]:
     body = clean_body_lines(body_lines)
     if not body:
         return []
     title = strip_control_markdown(title)
     collapse = partial(
-        collapse_narrative, threshold=collapse_narrative_chars, sanitize=strip_control_markdown
+        collapse_narrative,
+        threshold=collapse_narrative_chars,
+        sanitize=strip_control_markdown,
+        peek_units=collapse_peek_units,
     )
     if title.lower() == "reasoning" and thinking_blocks:
         rich_body = clean_body_lines_preserve_rich(body_lines)
         blocks = reasoning_rich_blocks(rich_body)
         if (collapsed := collapse(title, blocks)) is not None:
-            return [collapsed]
+            return collapsed
         return [RichHeading(title, level=2), *blocks]
     if title.lower() == "progress":
         paragraph = RichParagraph("\n".join(body))
         if (collapsed := collapse(title, [paragraph])) is not None:
-            return [collapsed]
+            return collapsed
         return [RichHeading(title, level=2), paragraph]
     if title.lower() == "plan":
         return [RichHeading(title, level=2), RichList(plan_detail_lines(body_lines))]
