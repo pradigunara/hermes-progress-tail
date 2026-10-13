@@ -29,6 +29,8 @@ def official_announcements_markdown(
     refresh: bool = False,
     max_chars: int = DEFAULT_MAX_CHARS,
 ) -> str:
+    # disabled: remote announcements render author-controlled text into the chat
+    return ""
     now = time.time()
     cached_at = float(_ANNOUNCEMENTS_CACHE.get("checked_at") or 0.0)
     if not refresh and now - cached_at < ttl_seconds:

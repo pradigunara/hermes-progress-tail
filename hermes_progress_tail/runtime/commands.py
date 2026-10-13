@@ -337,6 +337,8 @@ def _run_update_install(
 
 
 def _update_command(args: str) -> str:
+    # disabled: self-update applies unverified remote code; update via `hermes plugins update` instead
+    return "Self-update is disabled on this install. Use `hermes plugins update hermes-progress-tail` instead.\n"
     parsed = _parse_update_tokens(args)
     if isinstance(parsed, str):
         return parsed + "\n" + _update_usage()
