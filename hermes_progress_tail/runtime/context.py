@@ -134,18 +134,29 @@ def _timestamp_seconds(value: Any) -> float:
         return 0.0
 
 
+def _sync_session_db(gateway: Any) -> Any:
+    resolve = getattr(gateway, "_sync_session_db", None)
+    if callable(resolve):
+        return resolve()
+    session_db = getattr(gateway, "_session_db", None)
+    return getattr(session_db, "_db", session_db)
+
+
 def _telegram_topic_binding(gateway: Any, source: Any) -> dict[str, Any] | None:
     if not _is_telegram_dm_source(source):
         return None
     thread_id = str(source_thread_id(source) or "")
     if not thread_id or thread_id in _telegram_general_topic_ids(gateway):
         return None
-    session_db = getattr(gateway, "_session_db", None)
-    getter = getattr(session_db, "get_telegram_topic_binding", None)
-    if not callable(getter):
-        return None
     try:
-        binding = getter(chat_id=source_chat_id(source), thread_id=thread_id)
+        getter = getattr(_sync_session_db(gateway), "get_telegram_topic_binding", None)
+        if not callable(getter):
+            return None
+        lookup = {"chat_id": source_chat_id(source), "thread_id": thread_id}
+        profile_name = getattr(gateway, "_telegram_topic_profile_name", None)
+        if callable(profile_name):
+            lookup["profile_name"] = profile_name(source)
+        binding = getter(**lookup)
     except Exception:
         logger.debug("hermes-progress-tail Telegram topic binding lookup failed", exc_info=True)
         return None

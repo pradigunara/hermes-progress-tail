@@ -1,5 +1,7 @@
 import asyncio
+import gc
 import sys
+import warnings
 from datetime import datetime, timezone
 from types import ModuleType
 from types import SimpleNamespace as NS
@@ -8,6 +10,7 @@ import pytest
 
 from hermes_progress_tail.runtime import context as rc
 from hermes_progress_tail.settings.types import Settings
+from tests.support.gateway import AsyncSessionDB as ReplicaAsyncSessionDB
 
 
 def source(**kw):
@@ -99,6 +102,73 @@ def test_topic_binding_matrix():
         "session_id": "o",
         "updated_at": 2,
     }
+
+
+class TopicBindingDB:
+    def __init__(self):
+        self.bindings = {
+            ("default", "chat", "2"): {"session_id": "thread-default", "updated_at": 5.0},
+            ("bot2", "chat", "2"): {"session_id": "thread-bot2", "updated_at": 5.0},
+        }
+
+    def get_telegram_topic_binding(self, *, chat_id, thread_id, profile_name="default"):
+        return self.bindings.get((profile_name, chat_id, thread_id))
+
+
+class TopicModeGateway:
+    def __init__(self, session_db):
+        self._session_db = session_db
+
+    def _sync_session_db(self):
+        return getattr(self._session_db, "_db", self._session_db)
+
+    @staticmethod
+    def _telegram_topic_profile_name(source):
+        return str(getattr(source, "profile", None) or "").strip() or "default"
+
+
+def async_session_db_class(kind):
+    if kind == "replica":
+        return ReplicaAsyncSessionDB
+    return pytest.importorskip("hermes_state").AsyncSessionDB
+
+
+def resolve_without_unawaited_coroutines(resolve):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = resolve()
+        gc.collect()
+    assert not [w for w in caught if "never awaited" in str(w.message)]
+    return result
+
+
+@pytest.mark.parametrize("kind", ["replica", "hermes_state"])
+@pytest.mark.parametrize(
+    "make_gateway",
+    [lambda db: NS(_session_db=db), TopicModeGateway],
+    ids=["session-db-only", "sync-session-db-helper"],
+)
+def test_topic_binding_reads_through_async_session_db(kind, make_gateway):
+    gateway = make_gateway(async_session_db_class(kind)(TopicBindingDB()))
+    binding = resolve_without_unawaited_coroutines(
+        lambda: rc._telegram_topic_binding(gateway, source())
+    )
+    assert binding == {"session_id": "thread-default", "updated_at": 5.0}
+    assert rc._bound_telegram_topic_session_id(gateway, source()) == "thread-default"
+    entry = NS(session_id="entry", session_key="key", updated_at=1.0)
+    store = NS(get_or_create_session=lambda src: entry)
+    _, resolved_entry, session_id = resolve_without_unawaited_coroutines(
+        lambda: rc._pre_gateway_session_context(gateway, store, source())
+    )
+    assert resolved_entry is entry and session_id == "thread-default"
+
+
+@pytest.mark.parametrize("kind", ["replica", "hermes_state"])
+def test_topic_binding_is_scoped_to_the_routed_profile(kind):
+    gateway = TopicModeGateway(async_session_db_class(kind)(TopicBindingDB()))
+    assert rc._bound_telegram_topic_session_id(gateway, source(profile="bot2")) == "thread-bot2"
+    assert rc._bound_telegram_topic_session_id(gateway, source(profile="bot3")) == ""
+    assert rc._bound_telegram_topic_session_id(gateway, source()) == "thread-default"
 
 
 @pytest.mark.parametrize(

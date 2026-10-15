@@ -1,5 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+
+
+class AsyncSessionDB:
+    """Mirror of hermes_state.AsyncSessionDB: every callable attribute becomes a coroutine."""
+
+    def __init__(self, db):
+        self._db = db
+
+    def __getattr__(self, name):
+        attr = getattr(self._db, name)
+        if not callable(attr):
+            return attr
+
+        async def _offloaded(*args, **kwargs):
+            return await asyncio.to_thread(attr, *args, **kwargs)
+
+        return _offloaded
+
 
 class Source:
     platform = type("P", (), {"value": "discord"})()
