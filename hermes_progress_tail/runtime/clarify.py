@@ -11,6 +11,7 @@ from typing import Any
 
 from ..models.decision import CheckpointStatus
 from ..utils.redaction import redact_text
+from ..utils.scheduling import create_task_or_close, submit_or_close
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +70,11 @@ def run_clarify_freeze_barrier(
     guard = FreezeAttemptGuard(threading.Event())
     try:
         if _on_loop(loop):
-            loop.create_task(operation(guard)).add_done_callback(
+            create_task_or_close(loop, operation(guard)).add_done_callback(
                 _consume("same-loop freeze failed")
             )
             return True
-        future = asyncio.run_coroutine_threadsafe(operation(guard), loop)
+        future = submit_or_close(operation(guard), loop)
         return bool(future.result(timeout=_BARRIER_TIMEOUT_SECONDS))
     except Exception as exc:
         guard.invalidate()
@@ -90,9 +91,11 @@ def run_clarify_resolution_bridge(ctx: Any, operation: Callable[[], Awaitable[bo
         return
     try:
         if _on_loop(loop):
-            loop.create_task(operation()).add_done_callback(_consume("same-loop resolution failed"))
+            create_task_or_close(loop, operation()).add_done_callback(
+                _consume("same-loop resolution failed")
+            )
             return
-        future = asyncio.run_coroutine_threadsafe(operation(), loop)
+        future = submit_or_close(operation(), loop)
         future.result(timeout=_BARRIER_TIMEOUT_SECONDS)
     except TimeoutError as exc:
         future.add_done_callback(_consume("late resolution failed"))

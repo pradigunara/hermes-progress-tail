@@ -9,6 +9,7 @@ from typing import Any
 from ..gateway.compat import delete_message
 from ..models.decision import decision_is_waiting
 from ..models.state import SessionContext
+from ..utils.scheduling import create_task_or_close
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +234,7 @@ class RendererDelivery:
                 if ctx.delivery.delayed_flush_task is task:
                     ctx.delivery.delayed_flush_task = None
 
-        task = ctx.loop.create_task(_flush_later())
+        task = create_task_or_close(ctx.loop, _flush_later())
         ctx.delivery.delayed_flush_task = task
 
     def cancel_delayed_flush(self, ctx: SessionContext) -> None:
@@ -333,7 +334,7 @@ class RendererDelivery:
                 if scheduled_delivery.delete_task is task:
                     scheduled_delivery.delete_task = None
 
-        task = ctx.loop.create_task(_delete_later())
+        task = create_task_or_close(ctx.loop, _delete_later())
         ctx.delivery.delete_task = task
 
     async def render_snapshot(

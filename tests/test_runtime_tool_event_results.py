@@ -137,7 +137,6 @@ def test_schedule_render_handles_no_loop_callback_failure_and_scheduling_failure
     assert handled == [(event, True)]
 
     def fail_schedule(coroutine, loop):
-        coroutine.close()
         raise RuntimeError("schedule")
 
     monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", fail_schedule)

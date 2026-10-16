@@ -18,6 +18,7 @@ from ..models.state import (
     ToolEvent,
 )
 from ..rendering.formatter import extract_todo_items, format_tool_line
+from ..utils.scheduling import create_task_or_close, submit_or_close
 from .clarify import (
     classify_clarify_result,
     run_clarify_freeze_barrier,
@@ -76,9 +77,7 @@ def _schedule_render(
             bool(ctx.session_key),
             force,
         )
-        future = asyncio.run_coroutine_threadsafe(
-            renderer.handle_event(event, force=force), ctx.loop
-        )
+        future = submit_or_close(renderer.handle_event(event, force=force), ctx.loop)
 
         def _consume_done(fut):
             try:
@@ -200,7 +199,7 @@ def _schedule_background_job_cleanup(ctx: SessionContext, process_id: str) -> No
             force=True,
         )
 
-    ctx.loop.create_task(_cleanup())
+    create_task_or_close(ctx.loop, _cleanup())
 
 
 def _schedule_background_job_poll(ctx: SessionContext, process_id: str) -> None:
@@ -268,7 +267,7 @@ def _schedule_background_job_poll(ctx: SessionContext, process_id: str) -> None:
         except Exception:
             logger.debug("hermes-progress-tail background job poll failed", exc_info=True)
 
-    task = ctx.loop.create_task(_poll())
+    task = create_task_or_close(ctx.loop, _poll())
     job = ctx.background.jobs.get(process_id)
     if job is not None:
         job.poll_task = task

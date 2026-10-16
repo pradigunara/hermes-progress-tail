@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from typing import Any, Protocol
@@ -8,6 +7,7 @@ from typing import Any, Protocol
 from ..gateway.compat import platform_name
 from ..models.state import AssistantEvent, DelegateEvent, ReasoningEvent
 from ..utils.redaction import redact_text
+from ..utils.scheduling import submit_or_close
 from .context import _context_for
 from .environment import _agent_session_id, _agent_session_key, _update_environment_from_agent
 from .origin import _is_background_review_thread, _should_suppress_agent_progress
@@ -339,7 +339,7 @@ def _schedule_finalize(
         return
     generation = ctx.generation
     try:
-        future = asyncio.run_coroutine_threadsafe(
+        future = submit_or_close(
             renderer.finalize(
                 session_id=ctx.session_id,
                 purge=purge,

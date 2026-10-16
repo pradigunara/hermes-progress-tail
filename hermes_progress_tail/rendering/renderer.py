@@ -16,6 +16,7 @@ from ..models.state import (
     ToolEvent,
 )
 from ..settings.types import Settings
+from ..utils.scheduling import create_task_or_close
 from . import finalization as finalization_helpers
 from .background_jobs import background_jobs_section, cancel_background_poll
 from .clarify_checkpoint import ClarifyCheckpointController
@@ -350,7 +351,7 @@ class ProgressRenderer:
                 if branch.cleanup_task is task:
                     branch.cleanup_task = None
 
-        task = ctx.loop.create_task(cleanup())
+        task = create_task_or_close(ctx.loop, cleanup())
         branch.cleanup_task = task
 
     def _background_jobs_section(self, ctx: SessionContext) -> str:

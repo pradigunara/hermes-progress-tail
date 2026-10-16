@@ -84,7 +84,7 @@ def test_schedule_finalize_success_and_done_error(monkeypatch):
         run(coro)
         return future
 
-    monkeypatch.setattr(ae.asyncio, "run_coroutine_threadsafe", submit)
+    monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", submit)
     ae._schedule_finalize("sid", purge=True, success=False)
     assert p_calls == []
     assert finalized == [{"session_id": "sid", "purge": True, "generation": 7, "success": False}]
@@ -99,28 +99,6 @@ def test_schedule_finalize_missing_target_or_loop(monkeypatch, target):
     monkeypatch.setattr(ae, "_schedule_finalize", _SCHEDULE_FINALIZE)
     monkeypatch.setattr(ae, "_finalize_target_context", lambda *a: target)
     ae._schedule_finalize()
-
-
-def test_schedule_finalize_submission_exception_closes(monkeypatch):
-    target = ctx()
-
-    async def finalize(**kw):
-        pass
-
-    renderer = NS(finalize=finalize)
-    plugin(monkeypatch, renderer)
-    monkeypatch.setattr(ae, "_schedule_finalize", _SCHEDULE_FINALIZE)
-    monkeypatch.setattr(ae, "_finalize_target_context", lambda *a: target)
-    seen = []
-
-    def reject(coro, loop):
-        seen.append(coro)
-        coro.close()
-        raise RuntimeError("reject")
-
-    monkeypatch.setattr(ae.asyncio, "run_coroutine_threadsafe", reject)
-    ae._schedule_finalize(purge=True)
-    assert seen
 
 
 def test_gateway_stop_outcomes(monkeypatch):
@@ -153,10 +131,9 @@ def test_gateway_stop_platform_fallback_and_schedule_failure(monkeypatch, exact)
 
     def reject(coro, loop):
         submitted.append(loop)
-        coro.close()
         raise RuntimeError("schedule failed")
 
-    monkeypatch.setattr(ae.asyncio, "run_coroutine_threadsafe", reject)
+    monkeypatch.setattr(asyncio, "run_coroutine_threadsafe", reject)
     assert ae.on_gateway_stop_from_runner(
         session_key="k-sid" if exact else "missing", source=NS(platform="discord")
     )
